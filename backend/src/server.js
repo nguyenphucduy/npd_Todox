@@ -1,30 +1,35 @@
-import express from 'express';
-import tasksRoutes from './routes/tasksRoutes.js';
-import { connectDB } from './config/db.js';
-import dotenv from 'dotenv';
+import express from "express";
+import taskRoute from "./routes/tasksRoutes.js";
+import { connectDB } from "./config/db.js";
+import dotenv from "dotenv";
+import cors from "cors";
+import path from "path";
 
 dotenv.config();
-
-const PORT = process.env.PORT || 5001;  // Sử dụng cổng từ biến môi trường hoặc mặc định là 5001
-
-
-const app = express();// Tạo ứng dụng Express
+const app = express();
+const PORT = process.env.PORT || 5001;
+const __dirname = path.resolve();
 
 
+if (process.env.NODE_ENV !== "production") {
+  app.use(cors({ origin: "http://localhost:5173" }));
+}
 
-app.use(express.json());// Middleware để phân tích cú pháp JSON
+// middlewares
+app.use(express.json());
 
-app.use("/api/tasks",tasksRoutes);// Sử dụng routes cho các nhiệm vụ
+app.use("/api/tasks", taskRoute);
+
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
+  });
+}
 
 connectDB().then(() => {
-    app.listen(PORT, () => {
-        console.log('Server bất đầu trên cổng ${PORT}...');// Lắng nghe kết nối trên cổng đã chỉ định
-    });
+  app.listen(PORT, () => {
+    console.log(`server bắt đầu trên cổng ${PORT}`);
+  });
 });
-
-
-
-
-
-
-

@@ -1,72 +1,104 @@
 import Task from "../models/Task.js";
 
-
 export const getAllTasks = async (req, res) => {
-    try {
-        //tìm tất cả các nhiệm vụ trong cơ sở dữ liệu
-        const tasks = await Task.find().sort({ createdAt: -1 });//sắp xếp nhiệm vụ theo thời gian tạo giảm dần
-        res. status(200).json(tasks);//trả về danh sách nhiệm vụ với mã trạng thái 200
-    } catch (error) {
-        console.error("Lỗi khi gọi getAllTasks:", error);//ghi log lỗi ra console
-        res.status(500).json({ message: "Lỗi hệ thống" });//trả về lỗi máy chủ với mã trạng thái 500
+  const { filter = "today" } = req.query;
+  const now = new Date();
+  let startDate;
 
-        
+  switch (filter) {
+    case "today": {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // 2025-08-24 00:00
+      break;
     }
+    case "week": {
+      const mondayDate =
+        now.getDate() - (now.getDay() - 1) - (now.getDay() === 0 ? 7 : 0);
+      startDate = new Date(now.getFullYear(), now.getMonth(), mondayDate);
+      break;
+    }
+    case "month": {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    }
+    case "all":
+    default: {
+      startDate = null;
+    }
+  }
+
+  const query = startDate ? { createdAt: { $gte: startDate } } : {};
+
+  try {
+    const result = await Task.aggregate([
+      { $match: query },
+      {
+        $facet: {
+          tasks: [{ $sort: { createdAt: -1 } }],
+          activeCount: [{ $match: { status: "active" } }, { $count: "count" }],
+          completeCount: [{ $match: { status: "complete" } }, { $count: "count" }],
+        },
+      },
+    ]);
+
+    const tasks = result[0].tasks;
+    const activeCount = result[0].activeCount[0]?.count || 0;
+    const completeCount = result[0].completeCount[0]?.count || 0;
+
+    res.status(200).json({ tasks, activeCount, completeCount });
+  } catch (error) {
+    console.error("Lỗi khi gọi getAllTasks", error);
+    res.status(500).json({ message: "Lỗi hệ thống" });
+  }
 };
 
-export const createTask = async(req, res) => {
-   try {
-    const { title } = req.body;//lấy tiêu đề từ yêu cầu
-    const task = new Task({ title });//tạo một nhiệm vụ mới với tiêu đề đã cho
+export const createTask = async (req, res) => {
+  try {
+    const { title } = req.body;
+    const task = new Task({ title });
 
-    const newTask = await task.save();//lưu nhiệm vụ mới vào cơ sở dữ liệu
-    res.status(201).json(newTask);//trả về nhiệm vụ mới với mã trạng thái 201
-
-   } catch (error) {
-    console.error("Lỗi khi gọi createTask:", error);
+    const newTask = await task.save();
+    res.status(201).json(newTask);
+  } catch (error) {
+    console.error("Lỗi khi gọi createTask", error);
     res.status(500).json({ message: "Lỗi hệ thống" });
-   }
+  }
 };
 
 export const updateTask = async (req, res) => {
-   try {
-    //lấy tiêu đề, trạng thái và hoàn thành từ yêu cầu
-        const{title, status, completedAt} = req.body;
-        //tìm và cập nhật nhiệm vụ theo ID
-        const updatedTask = await Task.findByIdAndUpdate(
-            req.params.id,
-            { title,   
-              status,
-              completedAt
-         },
+  try {
+    const { title, status, completedAt } = req.body;
+    const updatedTask = await Task.findByIdAndUpdate(
+      req.params.id,
+      {
+        title,
+        status,
+        completedAt,
+      },
+      { new: true }
+    );
 
-            { new: true }
-        );
-        //nếu không tìm thấy nhiệm vụ, trả về lỗi 404
-        if (!updatedTask) {
-            return res.status(404).json({ message: "Nhiệm vụ không tồn tại" })
-        }
-        //trả về nhiệm vụ đã cập nhật với mã trạng thái 200
-        res.status(200).json(updatedTask);
+    if (!updatedTask) {
+      return res.status(404).json({ message: "Nhiệm vụ không tồn tại" });
+    }
 
-   } catch (error) {
-    console.error("Lỗi khi gọi updateTask:", error);
+    res.status(200).json(updatedTask);
+  } catch (error) {
+    console.error("Lỗi khi gọi updateTask", error);
     res.status(500).json({ message: "Lỗi hệ thống" });
-   }
+  }
 };
 
 export const deleteTask = async (req, res) => {
-    try {
-        const deletedTask = await Task.findByIdAndDelete(req.params.id);//tìm và xóa nhiệm vụ theo ID
+  try {
+    const deleteTask = await Task.findByIdAndDelete(req.params.id);
 
-        if (!deletedTask) {
-            return res.status(404).json({ message: "Nhiệm vụ không tồn tại" });//nếu không tìm thấy nhiệm vụ, trả về lỗi 404
-        }
-        res.status(200).json(deleteTask);
-    } catch (error) {
-        
-        console.error("Lỗi khi gọi deleteTask:", error);
-        res.status(500).json({ message: "Lỗi hệ thống" });
+    if (!deleteTask) {
+      return res.status(404).json({ message: "Nhiệm vụ không tồn tại" });
     }
-    
+
+    res.status(200).json(deleteTask);
+  } catch (error) {
+    console.error("Lỗi khi gọi deleteTask", error);
+    res.status(500).json({ message: "Lỗi hệ thống" });
+  }
 };
