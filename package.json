@@ -17,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/nguyenphucduy/npd_Todox/issues"
   },
-  "homepage": "https://github.com/nguyenphucduy/npd_Todox#readme"
+  "homepage": "https://github.com/nguyenphucduy/npd_Todox#readme",
+  "dependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.53.3"
+  }
 }
